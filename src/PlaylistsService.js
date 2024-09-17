@@ -1,26 +1,39 @@
 const { Pool } = require('pg');
- 
-class PlaylistsService {
+
+class PlaylistService {
   constructor() {
     this._pool = new Pool();
   }
 
-async getPlaylists(owner) {
-  const query = {
-    text: `
-      SELECT playlists.id, playlists.name, users.username 
-      FROM playlists
-      LEFT JOIN users ON playlists.owner = users.id
-      LEFT JOIN collaborations ON collaborations.playlist_id = playlists.id
-      WHERE playlists.owner = $1 OR collaborations.user_id = $1
+  async getPlaylists(playlistId) {
+    const query = {
+        text: `
+          SELECT id, name FROM playlists WHERE id = $1
+        `,
+        values: [playlistId],
+      };
+  
+    const result = await this._pool.query(query);
+    const playlist = result.rows[0];
+  
+    const songsQuery = {
+      text: `
+        SELECT songs.id, songs.title, songs.performer 
+        FROM songs
+        LEFT JOIN playlist_songs ON playlist_songs.song_id = songs.id
+        WHERE playlist_songs.playlist_id = $1
       `,
-    values: [owner],
-  };
-
-  const result = await this._pool.query(query);
-
-  return result.rows;
+      values: [playlistId],
+    };
+  
+    const songsResult = await this._pool.query(songsQuery);
+  
+    const songs = songsResult.rows;
+    const response = {
+      ...playlist,
+      songs,
+    };
+    return response;
+  }
 }
-}
-
-module.exports = PlaylistsService;
+module.exports = PlaylistService;
